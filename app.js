@@ -1,3 +1,4 @@
+
 import express from 'express';
 import http from 'http';
 import { Server as socketIo } from 'socket.io';
@@ -17,9 +18,11 @@ const io = new socketIo(server, {
 // Array to store users currently online
 let onlineUsers = [];
 const mutex = new Mutex();
+
 io.on('connection', (socket) => {
-    console.log('A user connected;Id=>',socket.id);
+    console.log('A user connected: Id=> ',socket.id);
     let otherSide = null;
+
     // Handle user registration and matching
     socket.on('register', (userData) => {
         const user = {
@@ -32,53 +35,63 @@ io.on('connection', (socket) => {
         // Attempt to match with another user
         matchAndConnect(socket, user).then(r => {});
     });
-    socket.on("match",(username,interests)=>{
+
+    socket.on("match", (userData) => {
         const user = {
             id: socket.id,
-            username: username,
-            interests: interests || [], // assuming interests is an array of strings
+            username: userData?.username,
+            interests: userData?.interests || [], // assuming interests is an array of strings
+            chatType: userData?.chatType
         };
-        // TODO : Here may be some issues in future.
         onlineUsers.push(user);
-        // Attempt to match with another user
-        matchAndConnect(socket, user).then(bestMatch=>{
 
-        });
-    })
-    socket.on("offer",(offer,toSocketId)=>{
-        console.log("Transferring offer to Answerer to :",toSocketId);
-        socket.to(toSocketId).emit("offer",offer);
-    })
-    socket.on("iceCandidate",(candidate,toSocketId)=>{
-        console.log("Transferring candidate to :",toSocketId);
-        socket.to(toSocketId).emit("iceCandidate",candidate);
+        // Attempt to match with another user
+        matchAndConnect(socket, user).then(bestMatch => {});
     });
-    socket.on("answer",(answer,toSocketId)=>{
-        console.log("Transferring the answer to :",toSocketId);
-        socket.to(toSocketId).emit("answer",answer);
-    })
-    socket.on("hangUp",(toSocketId)=>{
-        console.log("sending HangUp to:",toSocketId);
+
+    socket.on("offer", (offer, toSocketId) => {
+        console.log("Transferring offer to Answerer to :", toSocketId);
+        socket.to(toSocketId).emit("offer", offer);
+    });
+
+    socket.on("iceCandidate", (candidate, toSocketId) => {
+        console.log("Transferring candidate to :", toSocketId);
+        socket.to(toSocketId).emit("iceCandidate", candidate);
+    });
+
+    socket.on("answer", (answer, toSocketId) => {
+        console.log("Transferring the answer to :", toSocketId);
+        socket.to(toSocketId).emit("answer", answer);
+    });
+
+    socket.on("hangUp", (toSocketId) => {
+        console.log("sending HangUp to:", toSocketId);
         socket.to(toSocketId).emit("hangUp");
-    })
+    });
+
     socket.on('disconnect', () => {
         console.log('User disconnected');
         // Remove user from onlineUsers array on disconnect
         onlineUsers = onlineUsers.filter(u => u.id !== socket.id);
     });
 });
+
 let connectionNumber = 0;
+
 async function matchAndConnect(socket, currentUser) {
     // Find a matching user with highest interest score
     const release = await mutex.acquire(); // Acquire the mutex
     console.log("-------------------------------------------");
-    console.log("Connection Number:",++connectionNumber);
-    console.log("Lock Acquired by user:",currentUser.username);
+    console.log("Connection Number:", ++connectionNumber);
+    console.log("Lock Acquired by user:", currentUser.username);
+    console.log("Chat Type:", currentUser.chatType);
+
     let bestMatch = null;
+
     try {
         let maxInterestScore = -1;
         onlineUsers.forEach(user => {
-            if (user.id !== currentUser.id) {
+            if ((user.id !== currentUser.id) && (user.chatType === currentUser.chatType)) {
                 const interestScore = calculateInterestScore(currentUser, user);
                 if (interestScore > maxInterestScore) {
                     maxInterestScore = interestScore;
@@ -91,12 +104,12 @@ async function matchAndConnect(socket, currentUser) {
             // Remove both users from onlineUsers array
             onlineUsers = onlineUsers.filter(u => u.id !== currentUser.id && u.id !== bestMatch.id);
 
-           // Create a unique room ID for the chat session
-           const roomId = uuidv4(undefined, undefined, undefined);
+            // Create a unique room ID for the chat session
+            const roomId = uuidv4();
 
             // Notify both users about the room ID and each other's details
-            io.to(currentUser.id).emit('match', {roomId, user: bestMatch, type: "createAnOffer"});
-            io.to(bestMatch.id).emit('match', {roomId, user: currentUser, type: "listenForOffer"});
+            io.to(currentUser.id).emit('match', { roomId, user: bestMatch, type: "createAnOffer" });
+            io.to(bestMatch.id).emit('match', { roomId, user: currentUser, type: "listenForOffer" });
             console.log(`Match Found with ${bestMatch.username}, exchanging the Ids.`);
         } else {
             // If no suitable match is found, notify the current user
@@ -109,6 +122,7 @@ async function matchAndConnect(socket, currentUser) {
         release();  // Release the mutex
         console.log("-------------------------------------------");
     }
+
     return bestMatch;
 }
 
@@ -121,5 +135,5 @@ function calculateInterestScore(user1, user2) {
 }
 
 server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log('Server running on port 3000');
 });
