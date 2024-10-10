@@ -20,7 +20,7 @@ let onlineUsers = [];
 const mutex = new Mutex();
 
 io.on('connection', (socket) => {
-    console.log('A user connected: Id=> ',socket.id);
+    console.log('A user connected: Id=> ', socket.id);
     let otherSide = null;
 
     // Handle user registration and matching
@@ -33,7 +33,7 @@ io.on('connection', (socket) => {
         onlineUsers.push(user);
 
         // Attempt to match with another user
-        matchAndConnect(socket, user).then(r => {});
+        matchAndConnect(socket, user).then(r => { });
     });
 
     socket.on("match", (userData) => {
@@ -46,7 +46,7 @@ io.on('connection', (socket) => {
         onlineUsers.push(user);
 
         // Attempt to match with another user
-        matchAndConnect(socket, user).then(bestMatch => {});
+        matchAndConnect(socket, user).then(bestMatch => { });
     });
 
     socket.on("offer", (offer, toSocketId) => {
@@ -99,7 +99,7 @@ async function matchAndConnect(socket, currentUser) {
                 }
             }
         });
-
+        console.log("Best Match:", bestMatch, "Interest Score:", maxInterestScore);
         if (bestMatch && maxInterestScore > 0) {
             // Remove both users from onlineUsers array
             onlineUsers = onlineUsers.filter(u => u.id !== currentUser.id && u.id !== bestMatch.id);
@@ -113,7 +113,7 @@ async function matchAndConnect(socket, currentUser) {
             console.log(`Match Found with ${bestMatch.username}, exchanging the Ids.`);
         } else {
             // If no suitable match is found, notify the current user
-            io.to(currentUser.id).emit('noMatch', 'No suitable users available right now. Please try again later.');
+            io.to(currentUser.id).emit('noMatch', `No suitable users available right now with your intrest:[${currentUser.interests}]. Please try again later or Connect Randomly.`);
         }
     } catch (error) {
         io.to(currentUser.id).emit('onError', 'Something Wrong Happened. Please try again later.');
